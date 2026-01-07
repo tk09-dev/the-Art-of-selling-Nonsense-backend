@@ -90,7 +90,7 @@ ${flop.name} (${flop.unitsSold} units)
 ARTICLE REQUIREMENTS (MANDATORY)
 ━━━━━━━━━━━━━━━━━━
 
-You MUST write EXACTLY 4.
+You MUST write EXACTLY 5.
 
 MANDATORY ARTICLES (ALWAYS REQUIRED):
 1) TOP OF THE ROUND  
@@ -118,6 +118,45 @@ MANDATORY ARTICLES (ALWAYS REQUIRED):
    - Describe what this round says about attention, culture, or consumer mood
    - May reference hype cycles, fatigue, normalization, or escalation
    - Should feel like a commentary on society, not just the game
+
+5) PSYCHOLOGICAL AUTOPSY (CRITICAL — EDUCATIONAL CORE)
+
+- Focus ONLY on the BEST PERFORMING company
+- Identify the SINGLE most important psychological shortcut exploited
+- Name the effect (e.g. scarcity bias, social proof, authority bias, identity signaling, FOMO)
+- Explain:
+  a) What the bias is (plain language)
+  b) Why it exists in humans
+  c) How the winning strategy triggered it this round
+  d) Why rational resistance usually fails in this situation
+
+- You MUST ground the explanation in REAL, WELL-KNOWN research traditions
+  (e.g. behavioral economics, social psychology, marketing science)
+
+SOURCE RULES (VERY IMPORTANT):
+- Do NOT invent URLs or papers
+- Do NOT over-specify journals or page numbers
+- Cite sources in the following SAFE FORMAT ONLY:
+  “Classic research by [Author] ([approx. decade/year]) has shown that …”
+  Examples:
+  - “Kahneman & Tversky (1970s–80s)”
+  - “Cialdini’s persuasion research (1980s)”
+  - “Behavioral economics research at Harvard and Princeton (1990s–2000s)”
+
+- The goal is credibility, not academic completeness
+
+TONE:
+- Calm, forensic, slightly unsettling
+- Never accusatory
+- Never condescending
+- The reader should recognize themselves in the description
+
+IMPORTANT:
+- Do NOT say players were stupid
+- Show how normal, intelligent people are predictable under pressure
+
+The article MUST contain at least one sentence that implicitly applies the analysis to the reader
+(e.g. “If you felt drawn to this without being able to explain why, that was not accidental.”)
 
 ━━━━━━━━━━━━━━━━━━
 STYLE RULES
