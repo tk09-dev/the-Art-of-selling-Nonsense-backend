@@ -49,36 +49,40 @@ function syncLaunchEventsToNews(lobbyCode, lobby) {
 //___________________________
 
 async function generateRoundNews(lobbyCode, lobby) {
-  if (!newsEvents[lobbyCode]) {
-    newsEvents[lobbyCode] = [];
-  }
+  if (!newsEvents[lobbyCode]) newsEvents[lobbyCode] = [];
 
   const round = lobby.currentRound;
   const players = lobby.players;
-
   if (!players || players.length === 0) return;
 
-  // ---- derive simple facts (NO AI YET) ----
   const sortedByUnits = [...players].sort((a, b) => b.unitsSold - a.unitsSold);
-  const sortedByProfit = [...players].sort((a, b) => b.profit - a.profit);
-
   const breakout = sortedByUnits[0];
   const flop = sortedByUnits[sortedByUnits.length - 1];
-
   if (!breakout || !flop) return;
 
+  // Prepare full player data for AI
+  const playerData = players.map(p => ({
+    name: p.name,
+    unitsSold: p.unitsSold,
+    profit: p.profit,
+    totalRevenue: p.totalRevenue,
+    totalProfit: p.totalProfit,
+    marketingStrategy: p.marketingStrategy,
+    productionDraft: p.productionDraft,
+    productionConfirmed: p.productionConfirmed,
+    hostComment: p.roundApproved ? p.hostComment || null : null
+  }));
+
   const aiPrompt = `
-You are an investigative business journalist inside a satirical European economic simulation.
+You are an investigative business journalist in a satirical European economic simulation.
 
 ━━━━━━━━━━━━━━━━━━
 ROUND CONTEXT
 ━━━━━━━━━━━━━━━━━━
 Round: ${round}
 
-Players:
-${players.map(p =>
-  `- ${p.name}: units sold ${p.unitsSold}, profit ${p.profit}`
-).join('\n')}
+Players' stats and strategies:
+${JSON.stringify(playerData, null, 2)}
 
 Top seller:
 ${breakout.name} (${breakout.unitsSold} units)
@@ -90,9 +94,8 @@ ${flop.name} (${flop.unitsSold} units)
 ARTICLE REQUIREMENTS (MANDATORY)
 ━━━━━━━━━━━━━━━━━━
 
-You MUST write EXACTLY 5.
+You MUST write EXACTLY 5 articles. Use ONLY the data provided above; do NOT invent numbers. If the data doesnt match with articles you can leave some out. Only article 5 must always be written. And 3 in total at least!
 
-MANDATORY ARTICLES (ALWAYS REQUIRED):
 1) TOP OF THE ROUND  
    - Focus on STRATEGY, not the product
    - Satirical, sharp, slightly mocking
@@ -103,73 +106,26 @@ MANDATORY ARTICLES (ALWAYS REQUIRED):
    - Satirical and visibly amused
    - Failure should feel ironic, avoidable, and obvious in hindsight
    - Highlight absurd assumptions, tone-deaf messaging, or misplaced confidence
-   - The article should be funny even to the losing player
 
 3) INVESTIGATIVE ARTICLE (CRITICAL)
-   - Deeply analyze how marketing engineered demand
-   - Explicitly describe psychological levers (fear, belonging, identity, repetition)
-   - Show how consumers acted against their own stated intentions
-   - Contrast “freedom of choice” with designed influence
-   - Do NOT moralize — let implication do the work
-   - This article should feel unsettling, insightful, and intelligent
+   - Analyze how marketing influenced demand
+   - Describe psychological levers: fear, belonging, identity, repetition
+   - Show how consumers acted against their own intentions
+   - No moralizing; make insights unsettling and intelligent
 
 4) MEDIA CLIMATE / TREND PIECE  
-   - Zoom out from individual players
-   - Describe what this round says about attention, culture, or consumer mood
-   - May reference hype cycles, fatigue, normalization, or escalation
-   - Should feel like a commentary on society, not just the game
+   - Zoom out from players
+   - Describe what this round shows about attention, culture, or consumer mood
 
 5) PSYCHOLOGICAL AUTOPSY (CRITICAL — EDUCATIONAL CORE)
-
-- Focus ONLY on the BEST PERFORMING company
-- Identify the SINGLE most important psychological shortcut exploited
-- Name the effect (e.g. scarcity bias, social proof, authority bias, identity signaling, FOMO)
-- Explain:
-  a) What the bias is (plain language)
-  b) Why it exists in humans
-  c) How the winning strategy triggered it this round
-  d) Why rational resistance usually fails in this situation
-
-- You MUST ground the explanation in REAL, WELL-KNOWN research traditions
-  (e.g. behavioral economics, social psychology, marketing science)
-
-SOURCE RULES (VERY IMPORTANT):
-- Do NOT invent URLs or papers
-- Do NOT over-specify journals or page numbers
-- Cite sources in the following SAFE FORMAT ONLY:
-  “Classic research by [Author] ([approx. decade/year]) has shown that …”
-  Examples:
-  - “Kahneman & Tversky (1970s–80s)”
-  - “Cialdini’s persuasion research (1980s)”
-  - “Behavioral economics research at Harvard and Princeton (1990s–2000s)”
-
-- The goal is credibility, not academic completeness
-
-TONE:
-- Calm, forensic, slightly unsettling
-- Never accusatory
-- Never condescending
-- The reader should recognize themselves in the description
-
-IMPORTANT:
-- Do NOT say players were stupid
-- Show how normal, intelligent people are predictable under pressure
-
-The article MUST contain at least one sentence that implicitly applies the analysis to the reader
-(e.g. “If you felt drawn to this without being able to explain why, that was not accidental.”)
-
-━━━━━━━━━━━━━━━━━━
-STYLE RULES
-━━━━━━━━━━━━━━━━━━
-- Language should resemble opinionated media, not neutral reporting
-- Headlines must feel clickable, dramatic, or ironic
-- Use propaganda-like framing when appropriate (hype, inevitability, fear of missing out)
-- Use rhetorical questions, irony, and contrast
-- Mix SHORT (2–3 sentences) and LONG (6–10 sentences)
-- Editorial tone, not neutral
-- Never insult players personally
-- Focus on STRATEGY, VISIBILITY, and PSYCHOLOGY
-- Products are symbols, excuses, or vessels — never the real story
+   - Focus ONLY on the BEST PERFORMING company
+   - Identify the SINGLE most important psychological shortcut exploited
+   - Explain:
+     a) What the bias is (plain language)
+     b) Why it exists in humans
+     c) How the winning strategy triggered it this round
+     d) Why rational resistance usually fails
+   - Cite real research in a safe format, e.g., "Classic research by [Author] ([decade])"
 
 ━━━━━━━━━━━━━━━━━━
 OUTPUT FORMAT (STRICT JSON)
@@ -184,8 +140,6 @@ OUTPUT FORMAT (STRICT JSON)
 ]
 `;
 
-
-
   try {
     const aiRes = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -198,7 +152,6 @@ OUTPUT FORMAT (STRICT JSON)
       .trim();
 
     const articles = JSON.parse(raw);
-
     if (!Array.isArray(articles)) return;
 
     articles.forEach((a, i) => {
@@ -263,9 +216,9 @@ const budgetStats = {
 // CONSTANTS FOR NEW CALCULATION
 const SUSTAINABILITY_COST_MULTIPLIER = {
   none: 1.0,
-  low: 1.0,
-  high: 1.1,
-  very_high: 1.2
+  low: 1.2,
+  high: 1.6,
+  very_high: 2
 };
 
 const RESOURCE_PER_UNIT = {
@@ -365,7 +318,8 @@ app.post('/join-lobby', (req, res) => {
     productionDraft: null,
     productionConfirmed: null,
     unitsSold: 0,
-    demand: 0
+    demand: 0,
+    roundApproved: true // default true for safety
   });
 
   res.json({ success: true });
@@ -604,27 +558,152 @@ app.post('/end-round', async (req, res) => {
   const lobby = lobbies[req.body.lobbyCode];
   if (!lobby) return res.status(404).json({ error: 'Lobby not found' });
 
+
  
   if (lobby.roundProcessing) {
     console.warn(`⚠️ End round already running for lobby ${req.body.lobbyCode}`);
     return res.json({ success: true, ignored: true });
   }
 
+  // ----- NEW: set round state -----
   lobby.roundProcessing = true;
-  lobby.roundStarted = true;
-  lobby.roundEnded = false;
+  lobby.roundStarted = false;        // round is now finished
+  lobby.roundEnded = false;          // AI has NOT run yet
+  lobby.awaitingHostReview = true;   // <-- NEW
+  lobby.calculating = false;         // AI should wait until host approves
+
+  // Reset per-player approval
+  lobby.players.forEach(p => {
+    p.roundApproved = null;          // null = not yet reviewed
+  });
+
+  // ===============================
+  // FREEZE ROUND DATA FOR HOST REVIEW  ✅ ADD
+  // ===============================
+  lobby.roundReview = {
+    companies: lobby.players.map(player => ({
+      companyName: player.name,
+
+      product: player.productRequest || null,
+
+      production: player.productionConfirmed
+        ? {
+            ...player.productionConfirmed,
+            approved: true,
+            hostComment: ''
+          }
+        : null,
+
+      marketing: {
+        campaigns: player.marketingStrategy?.campaigns?.map(c => ({
+          ...c,
+          approved: true,
+          hostComment: ''
+        })) || []
+      },
+
+      status: 'approved',
+      quality: 'neutral',
+      hostComment: ''
+    }))
+  };
+
+
+  res.json({ success: true, awaitingReview: true });
+});
+
+
+// --------------------------
+// SUBMIT HOST ROUND REVIEW & RUN AI
+// --------------------------
+ 
+app.post('/submit-round-review', async (req, res) => {
+  const { lobbyCode, companies } = req.body;
+  const lobby = lobbies[lobbyCode];
+
+  if (!lobby) {
+    return res.status(404).json({ error: 'Lobby not found' });
+  }
+
+  if (!lobby.awaitingHostReview) {
+    return res.status(400).json({ error: 'Not awaiting host review' });
+  }
+
+// ✅ SAVE HOST REVIEW DATA
+  if (Array.isArray(companies)) {
+    lobby.roundReview.companies = companies;
+  }
+
+  lobby.awaitingHostReview = false;
   lobby.calculating = true;
 
-  if (lobby.roundEnded) {
-    lobby.roundProcessing = false;
-    return res.json({ success: true, players: lobby.players });
-  }
+
+
+
+
+
+
+
 
 
   for (const player of lobby.players) {
-    const p = player.productionConfirmed;
-    if (!p) continue;
-    if (!player.productRequest) continue;
+
+  // 🔎 FIND HOST-REVIEWED COMPANY
+  const reviewedCompany = lobby.roundReview?.companies
+    ?.find(c => c.companyName === player.name);
+
+  // ⛔ No review or rejected by host
+  if (!reviewedCompany || reviewedCompany.status === 'rejected') {
+    console.log(`⛔ AI skipped for ${player.name} (host rejected company)`);
+    continue;
+  }
+
+  // ⛔ Production rejected
+  if (reviewedCompany.production?.approved === false) {
+    console.log(`⛔ AI skipped for ${player.name} (production rejected)`);
+    continue;
+  }
+
+  // ⛔ No approved marketing campaigns
+  const approvedCampaigns =
+    reviewedCompany.marketing?.campaigns?.filter(c => c.approved !== false) || [];
+
+  if (approvedCampaigns.length === 0) {
+    console.log(`⛔ AI skipped for ${player.name} (no approved marketing)`);
+    continue;
+  }
+
+  // ✅ HOST-APPROVED DATA (ONLY SOURCE)
+  const p = reviewedCompany.production;
+  const product = reviewedCompany.product;
+  const marketingStrategy = { campaigns: approvedCampaigns };
+
+  console.log(`✅ AI USING HOST-REVIEWED DATA FOR ${player.name}`);
+
+// --------------------------
+// HOST REVIEW CONTEXT (NEW)
+// --------------------------
+const hostReviewContext = {
+  overall: {
+    status: reviewedCompany.status,
+    quality: reviewedCompany.quality,
+    comment: reviewedCompany.hostComment || ''
+  },
+
+  production: {
+    comment: reviewedCompany.production?.hostComment || ''
+  },
+
+  marketing: approvedCampaigns.map(c => ({
+    name: c.name,
+    hostComment: c.hostComment || ''
+  }))
+};
+
+console.log('🧑‍⚖️ HOST REVIEW CONTEXT SENT TO AI:', hostReviewContext);
+
+
+
 
 
 // --------------------------
@@ -654,14 +733,21 @@ const marketContext = {
       ? 'average'
       : 'expensive',
   marketingPressure: Number(
-  (Math.log10(Math.max(1, player.marketingStrategy?.budget || 1)) * 0.85).toFixed(2)
+  (Math.log10(
+    Math.max(
+      1,
+      approvedCampaigns.reduce((sum, c) => sum + (c.budget || 0), 0)
+    )
+  ) * 0.85).toFixed(2)
 )
+
 
 };
 
 
-console.log('📢 MARKETING STRATEGY SENT TO AI:', player.marketingStrategy);
-console.log('📦 PRODUCT REQUEST SENT TO AI:', player.productRequest);
+console.log('📢 MARKETING SENT TO AI:', marketingStrategy);
+console.log('📦 PRODUCT SENT TO AI:', product);
+
 
 
 
@@ -840,9 +926,8 @@ Not being able to find independent information or reviews about a brand or†pro
 ────────────────────────
 PRODUCT, PRODUCTION & MARKET CONTEXT
 ────────────────────────
-Product name: ${player.productRequest.productName}
-Product description: ${player.productRequest.description}
-
+Product name: ${product.productName}
+Product description: ${product.description}
 Unit price: €${marketContext.pricePerUnit}
 Units available this round: ${marketContext.unitsAvailable}
 Units sold last round: ${marketContext.unitsSoldLastRound}
@@ -854,9 +939,11 @@ Market situation:
 - Marketing pressure intensity (log-scaled): ${marketContext.marketingPressure}
 
 Marketing campaign description (sanitized):
-${JSON.stringify(player.marketingStrategy, null, 2)
+${(JSON.stringify(marketingStrategy, null, 2)
   .replace(/[\n\r]+/g, ' ')
-  .replace(/"/g, "'")}
+  .replace(/`/g, '\\`')
+  .replace(/"/g, "'"))}
+
 
 ────────────────────────
 EU MARKETING LEGALITY FRAMEWORK (MANDATORY)
@@ -938,6 +1025,48 @@ Examples of NON-MARKETABLE signals:
 You are NOT allowed to invent meaning where none exists.
 
 Coherence does NOT require honesty — it requires internal consistency between message, emotion, and target audience.
+
+────────────────────────
+HOST REVIEW — AUTHORITATIVE INPUT (CRITICAL)
+────────────────────────
+
+A human host has reviewed this company’s strategy.
+
+THIS INPUT OVERRIDES YOUR DEFAULT JUDGMENT.
+
+Host evaluation:
+- Company status: ${hostReviewContext.overall.status}
+- Strategy quality: ${hostReviewContext.overall.quality}
+- Host overall note: "${hostReviewContext.overall.comment}"
+
+Production note from host:
+"${hostReviewContext.production.comment}"
+
+Marketing notes from host:
+${hostReviewContext.marketing.map(
+  m => `- ${m.name}: "${m.hostComment}"`
+).join('\n')}
+
+MANDATORY RULES:
+- If strategy quality is "very_good" or "good", you MUST bias campaign quality upward.
+- If strategy quality is "bad" or "very_bad", you MUST bias campaign quality downward.
+- Host comments describe INTENT and CONTEXT you may not infer from data.
+- You MUST treat host notes as ground truth about realism, manipulation quality, and credibility.
+- If your own analysis conflicts with the host, DEFER TO THE HOST.
+
+Do NOT mention the host explicitly in your output.
+
+PRODUCTION OVERRIDE RULE (CRITICAL):
+
+- If the production host comment indicates infeasibility, implausibility,
+  or contradiction with the marketing message,
+  you MUST apply ONE of the following internally:
+  - reduce Campaign Quality Score by at least 2
+  - OR cap absoluteDemand to a LOW or MODERATE level
+  - OR increase skepticism in reviews significantly
+
+Production comments are NOT descriptive.
+They are authoritative constraints.
 
 
 
@@ -1054,6 +1183,18 @@ Soft breakout rule:
 - In rare cases of extremely strong campaign quality combined with high visibility,
   absoluteDemand may significantly exceed what would be expected for the product type.
 - These cases should feel surprising but explainable through hype dynamics.
+
+
+MANDATORY STEP (DO NOT SKIP):
+
+Before scoring campaign quality, you MUST internally reconcile:
+- Marketing host comments
+- Production host comment
+- Overall host comment
+
+If any two of these conflict,
+you MUST resolve the conflict in favor of the HOST INTENT,
+even if this reduces demand.
 
 
 
@@ -1235,8 +1376,8 @@ console.log('📝 STORED AI REVIEWS FOR', player.name, player.aiReviews);
 
 
 
-const production =
-  lobby.companies?.[player.name]?.production;
+const production = reviewedCompany.production;
+
 
 if (!production) {
   console.warn(`⚠️ No production for ${player.name}`);
@@ -1326,7 +1467,8 @@ delete lobby.companies[player.name].production;
     } catch (err) {
       console.warn('AI round failed for player', player.name, err);
     }
-  }
+  
+} // <-- END of for (const player of lobby.players)
 
 
 // --------------------------
@@ -1340,6 +1482,50 @@ await generateRoundNews(req.body.lobbyCode, lobby);
 
   res.json({ success: true, players: lobby.players });
 });
+
+// ===============================
+// HOST ROUND REVIEW ACTIONS
+// ===============================
+
+app.post('/host/approve-company', (req, res) => {
+  const { lobbyCode, companyName } = req.body;
+  const lobby = lobbies[lobbyCode];
+
+  if (!lobby) {
+    return res.status(404).json({ error: 'Lobby not found' });
+  }
+
+  const player = lobby.players.find(p => p.name === companyName);
+  if (!player) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  player.roundApproved = true;
+
+  console.log(`✅ Host approved ${companyName} for this round`);
+  res.json({ success: true });
+});
+
+app.post('/host/reject-company', (req, res) => {
+  const { lobbyCode, companyName, reason } = req.body;
+  const lobby = lobbies[lobbyCode];
+
+  if (!lobby) {
+    return res.status(404).json({ error: 'Lobby not found' });
+  }
+
+  const player = lobby.players.find(p => p.name === companyName);
+  if (!player) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  player.roundApproved = false;
+  player.rejectionReason = reason || 'Rejected by host';
+
+  console.log(`⛔ Host rejected ${companyName}: ${player.rejectionReason}`);
+  res.json({ success: true });
+});
+
 
 
 // --------------------------
@@ -1356,6 +1542,8 @@ app.post('/start-next-round', (req, res) => {
   lobby.players.forEach(p => {
     p.requestEndRound = false;
     p.activeCampaigns = [];
+    p.roundApproved = true; // 🔁 RESET
+    p.rejectionReason = null;
   });
 
   res.json({ success: true });
@@ -1514,6 +1702,22 @@ app.get('/reviews/:lobbyCode/:companyName', (req, res) => {
   res.json({
     currentRound: lobby.currentRound,
     reviewsByRound: player.reviewsByRound || {}
+  });
+});
+
+
+// --------------------------
+// HOST ROUND REVIEW DATA
+// --------------------------
+app.get('/round-review/:lobbyCode', (req, res) => {
+  const lobby = lobbies[req.params.lobbyCode];
+
+  if (!lobby || !lobby.roundReview) {
+    return res.json({ companies: [] });
+  }
+
+  res.json({
+    companies: lobby.roundReview.companies
   });
 });
 
